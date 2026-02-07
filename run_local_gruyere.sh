@@ -51,6 +51,7 @@ fi
 echo "3. Запуск Google Gruyere на порту $GRUYERE_PORT..."
 echo "   Для остановки нажмите Ctrl+C"
 echo "   URL: http://localhost:$GRUYERE_PORT"
+echo "   Дата запуска: $(date '+%d.%m.%Y %H:%M:%S')"
 echo ""
 
 cd "$GRUYERE_DIR"
@@ -59,9 +60,15 @@ cd "$GRUYERE_DIR"
 mkdir -p logs
 
 # Запускаем Gruyere с логированием
-python3 gruyere.py --port=$GRUYERE_PORT --logging=info 2>&1 | tee logs/gruyere.log
+echo "=== ЛОГ ЗАПУСКА GRUYERE ===" > logs/gruyere.log
+echo "Дата: $(date '+%d.%m.%Y %H:%M:%S')" >> logs/gruyere.log
+echo "Порт: $GRUYERE_PORT" >> logs/gruyere.log
+echo "==========================" >> logs/gruyere.log
+
+python3 gruyere.py --port=$GRUYERE_PORT 2>&1 | tee -a logs/gruyere.log
 
 echo ""
 echo "========================================"
 echo "Google Gruyere остановлен"
+echo "Дата остановки: $(date '+%d.%m.%Y %H:%M:%S')"
 echo "========================================"
