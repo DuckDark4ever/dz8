@@ -8,6 +8,7 @@ import numpy as np
 from scapy.all import rdpcap, IP, TCP, HTTPRequest, HTTPResponse
 from datetime import datetime
 import json
+import sys
 
 def load_pcap_stats(filename):
     """Загружает статистику из pcap файла"""
@@ -80,6 +81,7 @@ def create_comparison_report(normal_file, xss_file):
     print("=" * 70)
     print("ВИЗУАЛЬНЫЙ АНАЛИЗ И СРАВНЕНИЕ ТРАФИКА")
     print("=" * 70)
+    print(f"Дата анализа: {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}")
     
     normal_stats = load_pcap_stats(normal_file)
     xss_stats = load_pcap_stats(xss_file)
@@ -90,6 +92,7 @@ def create_comparison_report(normal_file, xss_file):
     comparison = compare_traffic_stats(normal_stats, xss_stats)
     
     # Создаем графики
+    plt.style.use('seaborn-v0_8-darkgrid')
     fig, axes = plt.subplots(2, 3, figsize=(15, 10))
     fig.suptitle('Сравнение сетевого трафика: нормальный vs XSS атака', fontsize=14)
     
@@ -99,6 +102,7 @@ def create_comparison_report(normal_file, xss_file):
                    color=['green', 'red'])
     axes[0, 0].set_title('Общее количество пакетов')
     axes[0, 0].set_ylabel('Количество')
+    axes[0, 0].grid(True, alpha=0.3)
     
     # 2. Средний размер пакета
     normal_avg = np.mean(normal_stats['packet_sizes'])
@@ -108,6 +112,7 @@ def create_comparison_report(normal_file, xss_file):
                    color=['green', 'red'])
     axes[0, 1].set_title('Средний размер пакета')
     axes[0, 1].set_ylabel('Байты')
+    axes[0, 1].grid(True, alpha=0.3)
     
     # 3. HTTP запросы и ответы
     x = np.arange(2)
@@ -123,6 +128,7 @@ def create_comparison_report(normal_file, xss_file):
     axes[0, 2].set_xticks(x)
     axes[0, 2].set_xticklabels(['Запросы', 'Ответы'])
     axes[0, 2].legend()
+    axes[0, 2].grid(True, alpha=0.3)
     
     # 4. Распределение размеров пакетов (гистограмма)
     axes[1, 0].hist([normal_stats['packet_sizes'], xss_stats['packet_sizes']],
@@ -132,6 +138,7 @@ def create_comparison_report(normal_file, xss_file):
     axes[1, 0].set_xlabel('Размер (байты)')
     axes[1, 0].set_ylabel('Частота')
     axes[1, 0].legend()
+    axes[1, 0].grid(True, alpha=0.3)
     
     # 5. Топ 5 IP адресов источников
     normal_top_src = sorted(normal_stats['source_ips'].items(), key=lambda x: x[1], reverse=True)[:5]
@@ -149,6 +156,7 @@ def create_comparison_report(normal_file, xss_file):
     axes[1, 1].set_xticks(x)
     axes[1, 1].set_xticklabels(src_labels, rotation=45, ha='right')
     axes[1, 1].legend()
+    axes[1, 1].grid(True, alpha=0.3)
     
     # 6. Разница в статистике
     metrics = ['Пакеты', 'Ср. размер', 'HTTP запр.', 'HTTP отв.']
@@ -164,10 +172,17 @@ def create_comparison_report(normal_file, xss_file):
     axes[1, 2].set_title('Разница (XSS - нормальный)')
     axes[1, 2].set_ylabel('Разница')
     axes[1, 2].axhline(y=0, color='black', linestyle='-', linewidth=0.5)
+    axes[1, 2].grid(True, alpha=0.3)
     
     plt.tight_layout()
-    plt.savefig('traffic_comparison_chart.png', dpi=300)
-    plt.show()
+    plt.savefig('traffic_comparison_chart.png', dpi=300, bbox_inches='tight')
+    print(f"\n✅ Визуализация сохранена в traffic_comparison_chart.png")
+    
+    # Показываем графики
+    if 'DISPLAY' in os.environ:
+        plt.show()
+    else:
+        print("⚠️ DISPLAY не найден, графики сохранены в файл")
     
     # Создаем текстовый отчет
     report = {
@@ -227,9 +242,10 @@ def create_comparison_report(normal_file, xss_file):
     with open('traffic_comparison_report.json', 'w') as f:
         json.dump(report, f, indent=2)
     
-    with open('traffic_comparison_summary.txt', 'w') as f:
+    with open('traffic_comparison_summary.txt', 'w', encoding='utf-8') as f:
         f.write("ОТЧЕТ О СРАВНЕНИИ ТРАФИКА\n")
         f.write("="*60 + "\n\n")
+        f.write(f"Дата анализа: {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}\n")
         f.write(f"Нормальный трафик: {normal_file}\n")
         f.write(f"Трафик с XSS атакой: {xss_file}\n\n")
         
@@ -262,17 +278,21 @@ def create_comparison_report(normal_file, xss_file):
         if report['findings']:
             f.write("  Обнаружены значительные различия в трафике при XSS атаке.\n")
             f.write("  Это подтверждает успешную эксплуатацию уязвимости.\n")
+            f.write("  Основные индикаторы атаки:\n")
+            f.write("    1. Увеличение общего объема трафика\n")
+            f.write("    2. Изменение структуры HTTP запросов\n")
+            f.write("    3. Наличие подозрительных паттернов в пакетах\n")
         else:
             f.write("  Значительных различий не обнаружено.\n")
             f.write("  XSS payload могли быть в теле запросов/ответов.\n")
     
-    print(f"\n✅ Визуализация сохранена в traffic_comparison_chart.png")
     print(f"✅ Отчет сохранен в traffic_comparison_report.json")
     print(f"✅ Сводка сохранена в traffic_comparison_summary.txt")
 
 def main():
     print("ВИЗУАЛИЗАТОР ТРАФИКА ДЛЯ СРАВНЕНИЯ")
     print("Этап 4: Визуальный анализ различий в трафике\n")
+    print(f"Дата запуска: {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}")
     
     normal_file = input("Введите имя pcap файла с нормальным трафиком (gruyere_traffic.pcap): ").strip()
     if not normal_file:
@@ -288,6 +308,7 @@ if __name__ == "__main__":
     # Проверяем наличие matplotlib
     try:
         import matplotlib
+        import os
         main()
     except ImportError:
         print("❌ Для работы визуализатора требуется matplotlib")
